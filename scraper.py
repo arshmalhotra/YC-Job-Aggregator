@@ -4,48 +4,65 @@ import pandas as pd
 from time import sleep
 from geotext import GeoText
 
-num_pages = input("How many pages would you like to scrape (up to 10)? ")
+numPages = input("How many pages would you like to scrape (up to 10)? ")
 
-allJobs = []
-all_dates = []
-morelink = "jobs"
 
-for i in range(int(num_pages)):
-    page = get("https://news.ycombinator.com/" + morelink)
-    soup = BeautifulSoup(page.content, 'html.parser')
-    allJobs += soup.find_all('tr',class_='athing')
-    all_dates += soup.find_all('td',class_='subtext')
-    morelink = soup.find('a', class_='morelink')['href']
-    sleep(1)
+def getDate(pages):
+    allJobs = []
+    allDates = []
+    moreLink = "jobs"
 
-job_titles = []
-company = []
+    for i in range(int(numPages)):
+        page = get("https://news.ycombinator.com/" + moreLink)
+        soup = BeautifulSoup(page.content, 'html.parser')
+        allJobs += soup.find_all('tr',class_='athing')
+        allDates += soup.find_all('td',class_='subtext')
+        moreLink = soup.find('a', class_='morelink')['href']
+        sleep(5)
 
-posts = {}
-i = 0
-k = 0
-full_job_title = zip(allJobs,all_dates)
+    return allJobs, allDates
 
-for j in full_job_title:
-  job_titles.append(j[0].find('a').get_text())
-  title = j[0].find('a').get_text()
-  company = title[:title.find("(Y")] if title.find("(Y") != -1 else ""
-  date = j[1].find('a').get_text()
-  lowerCaseTitle = title.lower()
-  job = ''
-  if lowerCaseTitle.find('is hiring'):
-      job = title[lowerCaseTitle.find('is hiring')+10:]
-  elif lowerCaseTitle.find('seeks'):
-      job = title[lowerCaseTitle.find('seeks')+6]
-  if company:
-    posts.update({k:{"post_title":title,"company":company,"date_posted":date,"hiring":job}})
+def getText(fromData):
+    return fromData.find('a').get_text()
 
-    k+=1
-  i+=1
+def getCompany(fromTitle):
+    idx = fromTitle.find('(Y')
+    if idx:
+        return fromTitle[:idx]
+    return ''
+
+def getCity(fromTitle):
+    places = GeoText(fromTitle)
+    return places.cities
+
+def getJobTitle(fromTitle):
+    jobTitle = ''
+    lowerCaseTitle = fromTitle.lower()
+    identifiers = ['is hiring', 'seeks']
+    ids = [(id, lowerCaseTitle.find(id)) for id in identifiers if id in lowerCaseTitle]
+    if ids:
+        idx = ids[-1][1] + len(ids[-1][0]) + 1
+        jobTitle = fromTitle[idx:]
+    return jobTitle
+
+def createDataDict(allJobs, allDates, length):
+    posts = {}
+
+    for i in range(length):
+        title = getText(allJobs[i])
+        date = getText(allDates[i])
+        company = getCompany(title)
+        city = getCity(title)
+        jobTitle = getJobTitle(title)
+
+        if company:
+            posts[i] = {
+                'post_title': title,
+                'company': company,
+                'date_posted': date,
+                'hiring': jobTitle,
+                'city': city
+            }
 
 df = pd.DataFrame.from_dict(posts, orient='index')
 print(df)
-
-for i in range (0, len(job_titles)):
-  places = GeoText(job_titles[i])  
-  print(places.cities)
