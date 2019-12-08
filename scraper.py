@@ -4,10 +4,7 @@ import pandas as pd
 from time import sleep
 from geotext import GeoText
 
-numPages = input("How many pages would you like to scrape (up to 10)? ")
-
-
-def getDate(pages):
+def getData(pages):
     allJobs = []
     allDates = []
     moreLink = "jobs"
@@ -63,6 +60,12 @@ def createDataDict(allJobs, allDates, length):
                 'hiring': jobTitle,
                 'city': city
             }
+    return posts
+
+numPages = input("How many pages would you like to scrape (up to 10)? ")
+allJobs, allDates = getData(numPages)
+posts = createDataDict(allJobs, allDates, len(allJobs))
 
 df = pd.DataFrame.from_dict(posts, orient='index')
-print(df)
+df.to_csv('output.csv')
+print(df.values)
