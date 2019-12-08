@@ -2,6 +2,7 @@ from requests import get
 from bs4 import BeautifulSoup
 import pandas as pd
 from time import sleep
+from geotext import GeoText
 
 num_pages = input("How many pages would you like to scrape (up to 10)? ")
 
@@ -26,7 +27,7 @@ k = 0
 full_job_title = zip(allJobs,all_dates)
 
 for j in full_job_title:
-  # job_titles.append(job.find('a').get_text())
+  job_titles.append(j[0].find('a').get_text())
   title = j[0].find('a').get_text()
   company = title[:title.find("(Y")] if title.find("(Y") != -1 else ""
   date = j[1].find('a').get_text()
@@ -44,3 +45,7 @@ for j in full_job_title:
 
 df = pd.DataFrame.from_dict(posts, orient='index')
 print(df)
+
+for i in range (0, len(job_titles)):
+  places = GeoText(job_titles[i])  
+  print(places.cities)
