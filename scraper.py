@@ -35,7 +35,7 @@ def getCity(fromTitle):
 def getJobTitle(fromTitle):
     jobTitle = ''
     lowerCaseTitle = fromTitle.lower()
-    identifiers = ['is hiring', 'seeks']
+    identifiers = ['hiring', 'seeks']
     ids = [(id, lowerCaseTitle.find(id)) for id in identifiers if id in lowerCaseTitle]
     if ids:
         idx = ids[-1][1] + len(ids[-1][0]) + 1
@@ -88,8 +88,9 @@ def createDataDict(allJobs, allDates, length):
         jobTitle = getJobTitle(title)
         city, funding = getCompanyInfo(company)
         listingCity = getCity(title)
+        print(listingCity)
         if listingCity:
-            city = listingCity
+            city = listingCity[0]
 
         if company:
             posts[i+1] = {
