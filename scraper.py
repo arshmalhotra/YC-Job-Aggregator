@@ -88,7 +88,6 @@ def createDataDict(allJobs, allDates, length):
         jobTitle = getJobTitle(title)
         city, funding = getCompanyInfo(company)
         listingCity = getCity(title)
-        print(listingCity)
         if listingCity:
             city = listingCity[0]
 
