@@ -24,8 +24,8 @@ def getText(fromData):
 
 def getCompany(fromTitle):
     idx = fromTitle.find('(Y')
-    if idx:
-        return fromTitle[:idx]
+    if idx > -1:
+        return fromTitle[:idx].strip()
     return ''
 
 def getCity(fromTitle):
@@ -42,6 +42,42 @@ def getJobTitle(fromTitle):
         jobTitle = fromTitle[idx:]
     return jobTitle
 
+def getFunding(fromHTML):
+    categories = fromHTML.find_all('h6', class_='text-secondary')
+    values = fromHTML.find_all('div', class_='badge badge-secondary ml-auto')
+    pairs = zip(categories, values)
+
+    for pair in pairs:
+        cat = pair[0].get_text().strip()
+        val = pair[1].get_text().strip()
+        if 'Funding' in cat:
+            return val
+
+    return None
+
+def getLocation(fromHTML):
+    details = fromHTML.find_all('p', class_='lighter')
+    for detail in details:
+        cat = detail.get_text().strip()
+        if 'Location' in cat:
+            return cat[10:]
+
+    return None
+
+def getCompanyInfo(ofCompany):
+    co = ofCompany.lower()
+    coURL = co.replace(' ', '-')
+    url = 'https://www.ycdb.co/company/' + coURL
+
+    ycdb = get(url)
+    soup = BeautifulSoup(ycdb.content, 'html.parser')
+    sleep(3)
+
+    funding = getFunding(soup)
+    location = getLocation(soup)
+
+    return location, funding
+
 def createDataDict(allJobs, allDates, length):
     posts = {}
 
@@ -49,18 +85,23 @@ def createDataDict(allJobs, allDates, length):
         title = getText(allJobs[i])
         date = getText(allDates[i])
         company = getCompany(title)
-        city = getCity(title)
         jobTitle = getJobTitle(title)
+        city, funding = getCompanyInfo(company)
+        listingCity = getCity(title)
+        if listingCity:
+            city = listingCity
 
         if company:
-            posts[i] = {
+            posts[i+1] = {
                 'post_title': title,
                 'company': company,
                 'date_posted': date,
                 'hiring': jobTitle,
-                'city': city
+                'city': city,
+                'funding': funding
             }
     return posts
+
 
 numPages = input("How many pages would you like to scrape (up to 10)? ")
 allJobs, allDates = getData(numPages)
@@ -68,4 +109,4 @@ posts = createDataDict(allJobs, allDates, len(allJobs))
 
 df = pd.DataFrame.from_dict(posts, orient='index')
 df.to_csv('output.csv')
-print(df.values)
+print(df)
