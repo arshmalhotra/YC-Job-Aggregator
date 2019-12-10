@@ -3,8 +3,10 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from time import sleep
 from geotext import GeoText
-from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
+from geopy.geocoders import Nominatim
+
+geolocator = Nominatim(user_agent="YC-Job-Search")
 
 def getData(pages):
     allJobs = []
@@ -106,9 +108,14 @@ def getCompanyInfo(ofCompany):
 
     return location, funding
 
+def getLatLong(city):
+    loc = geolocator.geocode(city)
+    return loc.latitude, loc.longitude
+
+
 def createDataDict(allJobs, allDates, length):
     posts = {}
-
+    j = 0
     for i in range(length):
         title = getText(allJobs[i])
         date = getText(allDates[i])
@@ -116,18 +123,24 @@ def createDataDict(allJobs, allDates, length):
         jobs = getJobs(title)
         city, funding = getCompanyInfo(company)
         listingCity = getCity(title)
+
         if listingCity:
             city = listingCity[0]
 
         if company and jobs and city and funding:
-            posts[i+1] = {
+            city += ', US'
+            lat,long = getLatLong(city)
+            posts[j+1] = {
                 'post_title': title,
                 'company': company,
                 'date_posted': date,
                 'hiring': jobs,
-                'city': city + ', US',
-                'funding': funding
+                'city': city,
+                'funding': funding,
+                'lat':lat,
+                'long':long
             }
+        j+=1
     return posts
 
 
