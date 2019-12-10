@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from time import sleep
 from geotext import GeoText
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 
 def getData(pages):
     allJobs = []
@@ -29,25 +31,42 @@ def getCompany(fromTitle):
     return ''
 
 def getCity(fromTitle):
-    places = GeoText(fromTitle)
+    formatedTitle = ' '.join([s.capitalize() for s in fromTitle.split()])
+    places = GeoText(formatedTitle, country='US')
     if list(places.cities):
         return places.cities
     elif 'SF' in fromTitle:
         return ['San Francisco']
     elif 'NYC' in fromTitle:
         return ['New York City']
+    elif 'LA' in fromTitle:
+        return ['Los Angeles']
     else:
         return None
 
-def getJobTitle(fromTitle):
-    jobTitle = ''
+def getJobs(fromTitle):
+    jobCategories = {
+        'Engineer': ['engineer', 'eng', 'developer', 'dev'],
+        'Director': ['director'],
+        'Head/Lead': ['head', 'lead'],
+        'Sales': ['sales'],
+        'Manager': ['manager', 'pm']
+    }
+    priorityCategories = ['Director', 'Head/Lead', 'Manager']
+    jobs = []
     lowerCaseTitle = fromTitle.lower()
-    identifiers = ['hiring', 'seeks']
-    ids = [(id, lowerCaseTitle.find(id)) for id in identifiers if id in lowerCaseTitle]
-    if ids:
-        idx = ids[-1][1] + len(ids[-1][0]) + 1
-        jobTitle = fromTitle[idx:]
-    return jobTitle
+
+    for position, keywords in jobCategories.items():
+        bestMatch = process.extractOne(lowerCaseTitle, keywords)
+        if bestMatch[1] >= 60:
+            jobs.append(position)
+
+    if not any(op in lowerCaseTitle for op in ['and', 'or']):
+        temp = jobs
+        jobs = [cat for cat in priorityCategories if cat in jobs]
+        jobs = jobs if jobs else temp
+
+    return jobs
 
 def getFunding(fromHTML):
     categories = fromHTML.find_all('h6', class_='text-secondary')
@@ -66,8 +85,8 @@ def getLocation(fromHTML):
     details = fromHTML.find_all('p', class_='lighter')
     for detail in details:
         cat = detail.get_text().strip()
-        if 'Location' in cat:
-            return cat[10:]
+        if 'Location' in cat and 'United States' in cat:
+            return cat[10:cat.index(',', 10)]
 
     return None
 
@@ -78,12 +97,12 @@ def getCompanyInfo(ofCompany):
 
     ycdb = get(url)
     soup = BeautifulSoup(ycdb.content, 'html.parser')
-    sleep(3)
+    sleep(1)
 
     funding = getFunding(soup)
     location = getLocation(soup)
 
-    
+
 
     return location, funding
 
@@ -94,19 +113,19 @@ def createDataDict(allJobs, allDates, length):
         title = getText(allJobs[i])
         date = getText(allDates[i])
         company = getCompany(title)
-        jobTitle = getJobTitle(title)
+        jobs = getJobs(title)
         city, funding = getCompanyInfo(company)
         listingCity = getCity(title)
         if listingCity:
             city = listingCity[0]
 
-        if company:
+        if company and jobs and city and funding:
             posts[i+1] = {
                 'post_title': title,
                 'company': company,
                 'date_posted': date,
-                'hiring': jobTitle,
-                'city': city,
+                'hiring': jobs,
+                'city': city + ', US',
                 'funding': funding
             }
     return posts
