@@ -15,7 +15,7 @@ def getData(pages):
         allJobs += soup.find_all('tr',class_='athing')
         allDates += soup.find_all('td',class_='subtext')
         moreLink = soup.find('a', class_='morelink')['href']
-        sleep(5)
+        sleep(3)
 
     return allJobs, allDates
 
@@ -30,7 +30,14 @@ def getCompany(fromTitle):
 
 def getCity(fromTitle):
     places = GeoText(fromTitle)
-    return places.cities
+    if list(places.cities):
+        return places.cities
+    elif 'SF' in fromTitle:
+        return ['San Francisco']
+    elif 'NYC' in fromTitle:
+        return ['New York City']
+    else:
+        return None
 
 def getJobTitle(fromTitle):
     jobTitle = ''
@@ -75,6 +82,8 @@ def getCompanyInfo(ofCompany):
 
     funding = getFunding(soup)
     location = getLocation(soup)
+
+    
 
     return location, funding
 
