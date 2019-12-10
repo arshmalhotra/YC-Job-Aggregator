@@ -25,9 +25,11 @@ def getData(pages):
 
     for i in range(int(numPages)):
         page = get("https://news.ycombinator.com/" + moreLink)
+        print(page)
         soup = BeautifulSoup(page.content, 'html.parser')
         allJobs += soup.find_all('tr',class_='athing')
         allDates += soup.find_all('td',class_='subtext')
+        print(f"going to {i} page")
         moreLink = soup.find('a', class_='morelink')['href']
         sleep(3)
 
@@ -121,28 +123,30 @@ def getCompanyInfo(ofCompany):
 cityToLatLong = {}
 
 def getLatLong(location):
-    # url = 'http://www.mapquestapi.com/geocoding/v1/address?key=' + MQ_API_KEY
-    # data = json.dumps({
-    #     "location": location
-    #     "options": {
-    #         "thumbMaps": false
-    #     }
-    # })
-    # response = post(url, data=data)
-    # jsonResp = response.json()
-    # if jsonResp['info']['statuscode'] == 0:
-    #     latLong = jsonResp['results']['locations']['displayLatLng']
-    #     return latLong['lat'], latLong['lng']
-
-    if location in cityToLatLong:
-        return cityToLatLong[location]
-    loc = geolocator.geocode(location)
-    cityToLatLong[location] = (loc.latitude, loc.longitude)
-    return loc.latitude, loc.longitude
+    url = 'http://www.mapquestapi.com/geocoding/v1/address?key=' + MQ_API_KEY
+    data = json.dumps({
+        "location": location,
+        "options": {
+            "thumbMaps": False
+        }
+    })
+    response = post(url, data=data)
+    jsonResp = response.json()
+    print(jsonResp)
+    if jsonResp['info']['statuscode'] == 0:
+        latLong = jsonResp['results'][0]['locations'][0]['displayLatLng']
+        print(latLong)
+        return latLong['lat'], latLong['lng']
+        # return 0,1
+    # if location in cityToLatLong:
+    #     return cityToLatLong[location]
+    # loc = geolocator.geocode(location)
+    # cityToLatLong[location] = (loc.latitude, loc.longitude)
+    # return loc.latitude, loc.longitude
 
 def getAddress(ofCompany, withCity):
     domain = massiveCSV.loc[massiveCSV['name']==ofCompany, 'homepage_domain']
-    if domain.values:
+    if any(domain.values):
         data = json.dumps({
             "domain": domain.values[0]
         })
@@ -155,9 +159,9 @@ def getAddress(ofCompany, withCity):
             if withCity:
                 for loc in locations[:-1]:
                     if withCity[:-4] == loc['city']:
-                        return loc['formatted']
+                        return loc['formatted'].strip()
             else:
-                return locations[0]['formatted']
+                return locations[0]['formatted'].strip()
     return withCity
 
 def createDataDict(allJobs, allDates, length):
@@ -177,7 +181,6 @@ def createDataDict(allJobs, allDates, length):
         if company and jobs and city and funding:
             city += ', US'
             address = getAddress(company, city)
-            print(address)
             lat,long = getLatLong(address)
             posts[j+1] = {
                 'post_title': title,
@@ -185,6 +188,7 @@ def createDataDict(allJobs, allDates, length):
                 'date_posted': date,
                 'hiring': jobs,
                 'location': address,
+                'city': city,
                 'funding': funding,
                 'lat':lat,
                 'long':long
