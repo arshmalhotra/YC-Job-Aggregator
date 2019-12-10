@@ -1,12 +1,22 @@
-from requests import get
+from requests import get, post
 from bs4 import BeautifulSoup
 import pandas as pd
 from time import sleep
 from geotext import GeoText
 from fuzzywuzzy import process
+import certifi
+import ssl
+import geopy.geocoders
 from geopy.geocoders import Nominatim
+import urllib.request, json
 
-geolocator = Nominatim(user_agent="YC-Job-Search")
+massiveCSV = pd.read_csv('./organizations.csv')
+FC_API_KEY = 'PloT13uDXv2S0M7MU3p3ztb3WGJxiYEb'
+MQ_API_KEY = 'ALxx74m6uGxA41aH7H93qxufXNYdglxD'
+
+ctx = ssl.create_default_context(cafile=certifi.where())
+geopy.geocoders.options.default_ssl_context = ctx
+geolocator = Nominatim(user_agent="YC-Job-Mapper", timeout=5)
 
 def getData(pages):
     allJobs = []
@@ -108,10 +118,47 @@ def getCompanyInfo(ofCompany):
 
     return location, funding
 
-def getLatLong(city):
-    loc = geolocator.geocode(city)
+cityToLatLong = {}
+
+def getLatLong(location):
+    # url = 'http://www.mapquestapi.com/geocoding/v1/address?key=' + MQ_API_KEY
+    # data = json.dumps({
+    #     "location": location
+    #     "options": {
+    #         "thumbMaps": false
+    #     }
+    # })
+    # response = post(url, data=data)
+    # jsonResp = response.json()
+    # if jsonResp['info']['statuscode'] == 0:
+    #     latLong = jsonResp['results']['locations']['displayLatLng']
+    #     return latLong['lat'], latLong['lng']
+
+    if location in cityToLatLong:
+        return cityToLatLong[location]
+    loc = geolocator.geocode(location)
+    cityToLatLong[location] = (loc.latitude, loc.longitude)
     return loc.latitude, loc.longitude
 
+def getAddress(ofCompany, withCity):
+    domain = massiveCSV.loc[massiveCSV['name']==ofCompany, 'homepage_domain']
+    if domain.values:
+        data = json.dumps({
+            "domain": domain.values[0]
+        })
+        url = 'https://api.fullcontact.com/v3/company.enrich'
+        header = {'Authorization': 'Bearer '+FC_API_KEY}
+        response = post(url, data=data, headers=header)
+        jsonResp = response.json()
+        if jsonResp['location']:
+            locations = jsonResp['details']['locations']
+            if withCity:
+                for loc in locations[:-1]:
+                    if withCity[:-4] == loc['city']:
+                        return loc['formatted']
+            else:
+                return locations[0]['formatted']
+    return withCity
 
 def createDataDict(allJobs, allDates, length):
     posts = {}
@@ -119,30 +166,31 @@ def createDataDict(allJobs, allDates, length):
     for i in range(length):
         title = getText(allJobs[i])
         date = getText(allDates[i])
+        date = date[3:] if 'on ' in date else date
         company = getCompany(title)
         jobs = getJobs(title)
         city, funding = getCompanyInfo(company)
         listingCity = getCity(title)
-
         if listingCity:
             city = listingCity[0]
 
         if company and jobs and city and funding:
             city += ', US'
-            lat,long = getLatLong(city)
+            address = getAddress(company, city)
+            print(address)
+            lat,long = getLatLong(address)
             posts[j+1] = {
                 'post_title': title,
                 'company': company,
                 'date_posted': date,
                 'hiring': jobs,
-                'city': city,
+                'location': address,
                 'funding': funding,
                 'lat':lat,
                 'long':long
             }
-        j+=1
+            j+=1
     return posts
-
 
 numPages = input("How many pages would you like to scrape (up to 10)? ")
 allJobs, allDates = getData(numPages)
