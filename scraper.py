@@ -25,13 +25,13 @@ def getData(pages):
 
     for i in range(int(numPages)):
         page = get("https://news.ycombinator.com/" + moreLink)
-        print(page)
+        # print(page)
         soup = BeautifulSoup(page.content, 'html.parser')
         allJobs += soup.find_all('tr',class_='athing')
         allDates += soup.find_all('td',class_='subtext')
         print(f"going to {i} page")
         moreLink = soup.find('a', class_='morelink')['href']
-        sleep(3)
+        sleep(10)
 
     return allJobs, allDates
 
@@ -132,10 +132,10 @@ def getLatLong(location):
     })
     response = post(url, data=data)
     jsonResp = response.json()
-    print(jsonResp)
+    # print(jsonResp)
     if jsonResp['info']['statuscode'] == 0:
         latLong = jsonResp['results'][0]['locations'][0]['displayLatLng']
-        print(latLong)
+        # print(latLong)
         return latLong['lat'], latLong['lng']
         # return 0,1
     # if location in cityToLatLong:
@@ -158,7 +158,7 @@ def getAddress(ofCompany, withCity):
             locations = jsonResp['details']['locations']
             if withCity:
                 for loc in locations[:-1]:
-                    if withCity[:-4] == loc['city']:
+                    if withCity[:-4] == loc.get('city'):
                         return loc['formatted'].strip()
             else:
                 return locations[0]['formatted'].strip()
@@ -167,8 +167,11 @@ def getAddress(ofCompany, withCity):
 def createDataDict(allJobs, allDates, length):
     posts = {}
     j = 0
+    # f = open("data.csv", "w+")
+    # f.write("title,company,date,jobs,address,city,funding,lat,long\r\n")
     for i in range(length):
         title = getText(allJobs[i])
+        print(f"working on: {title}")
         date = getText(allDates[i])
         date = date[3:] if 'on ' in date else date
         company = getCompany(title)
@@ -178,9 +181,12 @@ def createDataDict(allJobs, allDates, length):
         if listingCity:
             city = listingCity[0]
 
+        has_addy = False
         if company and jobs and city and funding:
             city += ', US'
             address = getAddress(company, city)
+            if(address != city):
+                has_addy = True
             lat,long = getLatLong(address)
             posts[j+1] = {
                 'post_title': title,
@@ -191,9 +197,13 @@ def createDataDict(allJobs, allDates, length):
                 'city': city,
                 'funding': funding,
                 'lat':lat,
-                'long':long
+                'long':long,
+                'has_addy':has_addy
             }
+            # f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s\r\n", title, company,
+            #         date, jobs, address, city, funding, lat, long)
             j+=1
+    # f.close()
     return posts
 
 numPages = input("How many pages would you like to scrape (up to 10)? ")
@@ -201,5 +211,8 @@ allJobs, allDates = getData(numPages)
 posts = createDataDict(allJobs, allDates, len(allJobs))
 
 df = pd.DataFrame.from_dict(posts, orient='index')
-df.to_csv('output.csv')
+df.to_csv('output-100.csv')
 print(df)
+
+
+# print(getAddress("Iris Automation", "San Francisco, US"))
