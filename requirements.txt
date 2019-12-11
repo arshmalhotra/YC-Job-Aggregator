@@ -1,0 +1,6 @@
+pip3 install bs4
+pip3 install pandas
+pip3 install geotext
+pip3 install geopy
+pip3 install fuzzywuzzy
+pip3 install python-Levenshtein
